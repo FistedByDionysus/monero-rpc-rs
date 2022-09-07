@@ -256,17 +256,23 @@ pub enum GetBlockHeaderSelector {
     Height(u64),
 }
 
+/// Selector for daemon `get_block`.
+pub enum GetBlockSelector {
+    /// Select the block by its hash.
+    Hash(BlockHash),
+    /// Select the block by its height.
+    Height(u64),
+}
+
 impl DaemonJsonRpcClient {
     /// Look up how many blocks are in the longest chain known to the node.
     pub async fn get_block_count(&self) -> anyhow::Result<NonZeroU64> {
-        #[derive(Deserialize)]
-        struct Rsp {
-            count: NonZeroU64,
-        }
-
         Ok(self
             .inner
-            .request::<MoneroResult<Rsp>>("get_block_count", RpcParams::array(empty()))
+            .request::<MoneroResult<GetBlockCountResponse>>(
+                "get_block_count",
+                RpcParams::array(empty()),
+            )
             .await?
             .into_inner()
             .count)
@@ -385,6 +391,28 @@ impl DaemonJsonRpcClient {
             .into_inner();
 
         Ok((headers.into_iter().map(From::from).collect(), untrusted))
+    }
+
+    /// This method returns a block at a given height or hash as a hex string, json string, and trusted.
+    pub async fn get_block(
+        &self,
+        selector: GetBlockSelector,
+    ) -> anyhow::Result<(String, String, bool)> {
+        let params = match selector {
+            GetBlockSelector::Hash(hash) => RpcParams::map(
+                Some(("hash", serde_json::to_value(HashString(hash)).unwrap())).into_iter(),
+            ),
+            GetBlockSelector::Height(height) => {
+                RpcParams::map(Some(("height", height.into())).into_iter())
+            }
+        };
+
+        let res: GetBlockResponse = self
+            .inner
+            .request::<MoneroResult<GetBlockResponse>>("get_block", params)
+            .await?
+            .into_inner();
+        Ok((res.blob, res.json, res.untrusted))
     }
 
     /// Enable additional functions for daemons in regtest mode.

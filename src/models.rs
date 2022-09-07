@@ -54,6 +54,16 @@ impl<T> MoneroResult<T> {
     }
 }
 
+//
+// Daemon RPC Types
+//
+
+/// Return type of daemon `get_block_count`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GetBlockCountResponse {
+    pub count: NonZeroU64,
+}
+
 /// Return type of daemon `get_block_template`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockTemplate {
@@ -150,6 +160,28 @@ impl From<GenerateBlocksResponseR> for GenerateBlocksResponse {
     }
 }
 
+/// Return type of daemon RPC `get_block`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GetBlockResponse {
+    pub blob: String, // Hexadecimal blob of block information
+    pub block_header: BlockHeaderResponse,
+    pub credits: u64,
+    pub json: String, // needs to be parsed as JsonBlock, but is received as a string
+    pub untrusted: bool,
+}
+
+/// Helper type to partially decode `as_json` string fields in other RPC return types.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct JsonBlock {
+    pub major_version: u64,
+    pub minor_version: u64,
+    #[serde(with = "chrono::serde::ts_seconds")]
+    pub timestamp: DateTime<Utc>,
+    pub prev_id: HashString<BlockHash>, // same as prev_hash
+    pub nonce: u32,
+    pub miner_tx: JsonTransaction,
+}
+
 /// Return type of daemon RPC `get_transactions`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransactionsResponse {
@@ -184,6 +216,10 @@ pub struct JsonTransaction {
     // TODO: these fields are skipped for now, their content changes often from hardfork to hardfork
     // vin, vout, extra, rct_signatures, rct_sig_prunable
 }
+
+//
+// Wallet RPC Types
+//
 
 /// Sub-type of [`BalanceData`]'s return type of wallet `get_balance`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
